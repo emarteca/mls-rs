@@ -632,7 +632,7 @@ where
     ///
     /// WARNING: The message sender is not authenticated.
     #[cfg(feature = "non_domain_separated_hpke_encrypt_decrypt")]
-    #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
+    #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync, safer_ffi_gen::safer_ffi_gen_ignore)]
     pub async fn hpke_encrypt_to_recipient(
         &self,
         recipient_index: u32,
@@ -707,7 +707,7 @@ where
     ///
     /// WARNING: The message sender is not authenticated.
     #[cfg(feature = "non_domain_separated_hpke_encrypt_decrypt")]
-    #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
+    #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync, safer_ffi_gen::safer_ffi_gen_ignore)]
     pub async fn hpke_decrypt_for_current_member(
         &self,
         context_info: &[u8],
