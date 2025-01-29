@@ -620,6 +620,7 @@ where
         let hpke_ciphertext = self
             .cipher_suite_provider
             .hpke_seal(member_public_key, context_info, associated_data, plaintext)
+            .await
             .map_err(|e| MlsError::CryptoProviderError(e.into_any_error()))?;
         Ok(hpke_ciphertext)
     }
@@ -694,6 +695,7 @@ where
                 context_info,
                 associated_data,
             )
+            .await
             .map_err(|e| MlsError::CryptoProviderError(e.into_any_error()))?;
         Ok(plaintext)
     }
@@ -2461,9 +2463,11 @@ mod tests {
 
         let hpke_ciphertext = bob_group
             .hpke_encrypt_to_recipient(receiver_index, &context_info, None, plaintext)
+            .await
             .unwrap();
         let hpke_decrypted = alice_group
             .hpke_decrypt_for_current_member(&context_info, None, hpke_ciphertext)
+            .await
             .unwrap();
 
         assert_eq!(plaintext.to_vec(), hpke_decrypted);
@@ -2491,6 +2495,7 @@ mod tests {
                 None,
                 plaintext,
             )
+            .await
             .unwrap();
         let hpke_decrypted = alice_group
             .safe_decrypt_with_context_for_current_member(
@@ -2499,6 +2504,7 @@ mod tests {
                 None,
                 hpke_ciphertext,
             )
+            .await
             .unwrap();
 
         assert_eq!(plaintext.to_vec(), hpke_decrypted);
@@ -2525,11 +2531,13 @@ mod tests {
 
         let hpke_ciphertext = bob
             .hpke_encrypt_to_recipient(receiver_index, &context_info, None, plaintext)
+            .await
             .unwrap();
 
         // different recipient tries to decrypt
-        let hpke_decrypted =
-            carol.hpke_decrypt_for_current_member(&context_info, None, hpke_ciphertext);
+        let hpke_decrypted = carol
+            .hpke_decrypt_for_current_member(&context_info, None, hpke_ciphertext)
+            .await;
 
         // should fail because carol can't decrypt the message encrypted for alice
         assert_matches!(hpke_decrypted, Err(MlsError::CryptoProviderError(_)));
@@ -2562,15 +2570,18 @@ mod tests {
                 None,
                 plaintext,
             )
+            .await
             .unwrap();
 
         // different recipient tries to decrypt
-        let hpke_decrypted = carol.safe_decrypt_with_context_for_current_member(
-            component_id,
-            &context_info,
-            None,
-            hpke_ciphertext,
-        );
+        let hpke_decrypted = carol
+            .safe_decrypt_with_context_for_current_member(
+                component_id,
+                &context_info,
+                None,
+                hpke_ciphertext,
+            )
+            .await;
 
         // should fail because carol can't decrypt the message encrypted for alice
         assert_matches!(hpke_decrypted, Err(MlsError::CryptoProviderError(_)));
@@ -2599,6 +2610,7 @@ mod tests {
                 Some(&associated_data),
                 plaintext,
             )
+            .await
             .unwrap();
 
         // add carol to the group
@@ -2608,6 +2620,7 @@ mod tests {
         // make sure alice can still decrypt
         let hpke_decrypted = alice
             .hpke_decrypt_for_current_member(&context_info, Some(&associated_data), hpke_ciphertext)
+            .await
             .unwrap();
         assert_eq!(plaintext.to_vec(), hpke_decrypted);
     }
@@ -2636,6 +2649,7 @@ mod tests {
                 Some(&associated_data),
                 plaintext,
             )
+            .await
             .unwrap();
 
         // add carol to the group
@@ -2650,6 +2664,7 @@ mod tests {
                 Some(&associated_data),
                 hpke_ciphertext,
             )
+            .await
             .unwrap();
         assert_eq!(plaintext.to_vec(), hpke_decrypted);
     }
