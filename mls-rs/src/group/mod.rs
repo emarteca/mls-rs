@@ -631,10 +631,9 @@ where
     /// Returns `ciphertext` and `kem_output` inside `HpkeCiphertext`.
     ///
     /// WARNING: The message sender is not authenticated.
-    #[cfg(feature = "non_domain_separated_hpke_encrypt_decrypt")]
+    #[cfg(all(feature = "non_domain_separated_hpke_encrypt_decrypt", feature = "ffi"))]
     #[cfg_attr(
         not(mls_build_async),
-        all(feature = "ffi", not(test)),
         maybe_async::must_be_sync,
         safer_ffi_gen::safer_ffi_gen_ignore
     )]
@@ -711,7 +710,7 @@ where
     /// current member.
     ///
     /// WARNING: The message sender is not authenticated.
-    #[cfg(feature = "non_domain_separated_hpke_encrypt_decrypt")]
+    #[cfg(all(feature = "non_domain_separated_hpke_encrypt_decrypt", feature = "ffi"))]
     #[cfg_attr(
         not(mls_build_async),
         all(feature = "ffi", not(test)),
