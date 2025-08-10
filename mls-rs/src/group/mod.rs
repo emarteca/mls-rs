@@ -269,7 +269,7 @@ where
     config: C,
     cipher_suite_provider: <C::CryptoProvider as CryptoProvider>::CipherSuiteProvider,
     state_repo: GroupStateRepository<C::GroupStateStorage, C::KeyPackageRepository>,
-    pub(crate) state: GroupState,
+    pub(crate) state: GroupState<C::CustomProposalDecoder>,
     epoch_secrets: EpochSecrets,
     private_tree: TreeKemPrivate,
     key_schedule: KeySchedule,
@@ -828,7 +828,7 @@ where
 
     fn provisional_private_tree(
         &self,
-        provisional_state: &ProvisionalState,
+        provisional_state: &ProvisionalState<C::CustomProposalDecoder>,
     ) -> Result<(TreeKemPrivate, Option<SignatureSecretKey>), MlsError> {
         let mut provisional_private_tree = self.private_tree.clone();
         let self_index = provisional_private_tree.self_index;
@@ -947,8 +947,8 @@ where
         self.proposal_message(proposal, authenticated_data).await
     }
 
-    fn add_proposal(&self, key_package: MlsMessage) -> Result<Proposal, MlsError> {
-        Ok(Proposal::Add(alloc::boxed::Box::new(AddProposal {
+    fn add_proposal(&self, key_package: MlsMessage) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
+        Ok(Proposal::<C::CustomProposalDecoder>::Add(alloc::boxed::Box::new(AddProposal {
             key_package: key_package
                 .into_key_package()
                 .ok_or(MlsError::UnexpectedMessageType)?,
@@ -1012,7 +1012,7 @@ where
         signer: Option<SignatureSecretKey>,
         signing_identity: Option<SigningIdentity>,
         leaf_node_extensions: Option<ExtensionList>,
-    ) -> Result<Proposal, MlsError> {
+    ) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
         // Grab a copy of the current node and update it to have new key material
         let mut new_leaf_node: LeafNode = self.current_user_leaf_node()?.clone();
 
@@ -1038,7 +1038,7 @@ where
         self.pending_updates
             .push((new_leaf_node.public_key.clone(), (secret_key, signer)));
 
-        Ok(Proposal::Update(UpdateProposal {
+        Ok(Proposal::<C::CustomProposalDecoder>::Update(UpdateProposal {
             leaf_node: new_leaf_node,
         }))
     }
@@ -1059,13 +1059,13 @@ where
         self.proposal_message(proposal, authenticated_data).await
     }
 
-    fn remove_proposal(&self, index: u32) -> Result<Proposal, MlsError> {
+    fn remove_proposal(&self, index: u32) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
         let leaf_index = LeafIndex::try_from(index)?;
 
         // Verify that this leaf is actually in the tree
         self.current_epoch_tree().get_leaf_node(leaf_index)?;
 
-        Ok(Proposal::Remove(RemoveProposal {
+        Ok(Proposal::<C::CustomProposalDecoder>::Remove(RemoveProposal {
             to_remove: leaf_index,
         }))
     }
@@ -1110,8 +1110,8 @@ where
     }
 
     #[cfg(feature = "psk")]
-    fn psk_proposal(&self, key_id: JustPreSharedKeyID) -> Result<Proposal, MlsError> {
-        Ok(Proposal::Psk(PreSharedKeyProposal {
+    fn psk_proposal(&self, key_id: JustPreSharedKeyID) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
+        Ok(Proposal::<C::CustomProposalDecoder>::Psk(PreSharedKeyProposal {
             psk: PreSharedKeyID::new(key_id, &self.cipher_suite_provider)?,
         }))
     }
@@ -1171,14 +1171,14 @@ where
         version: ProtocolVersion,
         cipher_suite: CipherSuite,
         extensions: ExtensionList,
-    ) -> Result<Proposal, MlsError> {
+    ) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
         let group_id = group_id.map(Ok).unwrap_or_else(|| {
             self.cipher_suite_provider
                 .random_bytes_vec(self.cipher_suite_provider.kdf_extract_size())
                 .map_err(|e| MlsError::CryptoProviderError(e.into_any_error()))
         })?;
 
-        Ok(Proposal::ReInit(ReInitProposal {
+        Ok(Proposal::<C::CustomProposalDecoder>::ReInit(ReInitProposal {
             group_id,
             version,
             cipher_suite,
@@ -1210,8 +1210,8 @@ where
         self.proposal_message(proposal, authenticated_data).await
     }
 
-    fn group_context_extensions_proposal(&self, extensions: ExtensionList) -> Proposal {
-        Proposal::GroupContextExtensions(extensions)
+    fn group_context_extensions_proposal(&self, extensions: ExtensionList) -> Proposal<C::CustomProposalDecoder> {
+        Proposal::<C::CustomProposalDecoder>::GroupContextExtensions(extensions)
     }
 
     /// Create a custom proposal message.

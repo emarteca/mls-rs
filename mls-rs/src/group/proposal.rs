@@ -307,7 +307,7 @@ impl CustomProposal {
     }
 }
 
-pub trait CustomDecoder: Sized + MlsEncode + MlsDecode + MlsSize + std::marker::Send + std::marker::Sync {
+pub trait CustomDecoder: Sized + MlsEncode + MlsDecode + MlsSize + std::marker::Send + std::marker::Sync + Clone {
     // type A: any;
     fn encode_from_bytes(data: &Vec<u8>, writer: &mut Vec<u8>, _proposal_type: &ProposalType) -> Result<(), mls_rs_codec::Error> {
         mls_rs_codec::byte_vec::mls_encode(data, writer)
@@ -679,14 +679,14 @@ impl<'a> From<&'a CustomProposal> for BorrowedProposal<'a> {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
-pub(crate) enum ProposalOrRef {
-    Proposal(Box<Proposal>) = 1u8,
+pub(crate) enum ProposalOrRef<C: CustomDecoder = BasicDecoder> {
+    Proposal(Box<Proposal<C>>) = 1u8,
     #[cfg(feature = "by_ref_proposal")]
     Reference(ProposalRef) = 2u8,
 }
 
-impl From<Proposal> for ProposalOrRef {
-    fn from(proposal: Proposal) -> Self {
+impl<C: CustomDecoder> From<Proposal<C>> for ProposalOrRef<C> {
+    fn from(proposal: Proposal<C>) -> Self {
         Self::Proposal(Box::new(proposal))
     }
 }

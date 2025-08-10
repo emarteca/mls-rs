@@ -11,18 +11,19 @@ use super::{
 };
 use crate::{
     group::{GroupContext, TreeKemPublic},
+    group::proposal::{CustomDecoder, BasicDecoder},
     tree_kem::node::LeafIndex,
 };
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Clone, Debug, PartialEq, MlsSize, MlsEncode, MlsDecode)]
 #[non_exhaustive]
-pub struct GroupState {
+pub struct GroupState<C: CustomDecoder = BasicDecoder> {
     #[cfg(feature = "by_ref_proposal")]
-    pub(crate) proposals: crate::group::ProposalCache,
+    pub(crate) proposals: crate::group::ProposalCache<C>,
     pub context: GroupContext,
     pub(crate) public_tree: TreeKemPublic,
     pub(crate) interim_transcript_hash: InterimTranscriptHash,
@@ -37,8 +38,8 @@ impl GroupState {
     }
 }
 
-#[cfg_attr(all(feature = "ffi", not(test)), safer_ffi_gen::safer_ffi_gen)]
-impl GroupState {
+// #[cfg_attr(all(feature = "ffi", not(test)), safer_ffi_gen::safer_ffi_gen)]
+impl<C: CustomDecoder> GroupState<C> {
     pub fn member_at_index(&self, index: u32) -> Option<Member> {
         let Ok(leaf_index) = LeafIndex::try_from(index) else {
             return None;
@@ -58,7 +59,7 @@ impl GroupState {
     ) -> Self {
         Self {
             #[cfg(feature = "by_ref_proposal")]
-            proposals: crate::group::ProposalCache::new(
+            proposals: crate::group::ProposalCache::<C>::new(
                 context.protocol_version,
                 context.group_id.clone(),
             ),

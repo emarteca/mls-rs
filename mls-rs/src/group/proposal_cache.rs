@@ -14,7 +14,7 @@ use crate::{
     client::MlsError,
     group::{
         proposal_filter::{ProposalApplier, ProposalBundle, ProposalSource},
-        Proposal, Sender,
+        Proposal, Sender, proposal::{CustomDecoder, BasicDecoder}
     },
     time::MlsTime,
 };
@@ -41,17 +41,17 @@ use core::fmt::{self, Debug};
 #[cfg(feature = "by_ref_proposal")]
 #[derive(Debug, Clone, MlsSize, MlsEncode, MlsDecode, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct CachedProposal {
-    pub(crate) proposal: Proposal,
+pub struct CachedProposal<C: CustomDecoder = BasicDecoder> {
+    pub(crate) proposal: Proposal<C>,
     pub(crate) sender: Sender,
 }
 
 #[cfg(feature = "by_ref_proposal")]
 #[derive(Clone, MlsSize, MlsEncode, MlsDecode)]
-pub(crate) struct ProposalCache {
+pub(crate) struct ProposalCache<C: CustomDecoder = BasicDecoder> {
     protocol_version: ProtocolVersion,
     group_id: Vec<u8>,
-    pub(crate) proposals: crate::map::SmallMap<ProposalRef, CachedProposal>,
+    pub(crate) proposals: crate::map::SmallMap<ProposalRef, CachedProposal<C>>,
     pub(crate) own_proposals: crate::map::SmallMap<MessageHash, ProposalMessageDescription>,
 }
 
@@ -79,7 +79,7 @@ impl Debug for ProposalCache {
 }
 
 #[cfg(feature = "by_ref_proposal")]
-impl ProposalCache {
+impl<C: CustomDecoder> ProposalCache<C> {
     pub fn new(protocol_version: ProtocolVersion, group_id: Vec<u8>) -> Self {
         Self {
             protocol_version,
@@ -92,7 +92,7 @@ impl ProposalCache {
     pub fn import(
         protocol_version: ProtocolVersion,
         group_id: Vec<u8>,
-        proposals: crate::map::SmallMap<ProposalRef, CachedProposal>,
+        proposals: crate::map::SmallMap<ProposalRef, CachedProposal<C>>,
         own_proposals: crate::map::SmallMap<MessageHash, ProposalMessageDescription>,
     ) -> Self {
         Self {
@@ -159,7 +159,7 @@ impl ProposalCache {
     pub fn prepare_commit(
         &self,
         sender: Sender,
-        additional_proposals: Vec<Proposal>,
+        additional_proposals: Vec<Proposal<C>>,
     ) -> ProposalBundle {
         self.proposals
             .iter()
@@ -252,7 +252,7 @@ pub(crate) fn resolve_for_commit(
     Ok(proposals)
 }
 
-impl GroupState {
+impl<Cd: CustomDecoder> GroupState<Cd> {
     #[inline(never)]
     #[allow(clippy::too_many_arguments)]
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
@@ -267,7 +267,7 @@ impl GroupState {
         user_rules: &F,
         commit_time: Option<MlsTime>,
         direction: CommitDirection,
-    ) -> Result<ProvisionalState, MlsError>
+    ) -> Result<ProvisionalState<Cd>, MlsError>
     where
         C: IdentityProvider,
         F: MlsRules,
@@ -342,7 +342,7 @@ impl GroupState {
         #[cfg(feature = "by_ref_proposal")]
         let proposals = applier_output.applied_proposals;
 
-        Ok(ProvisionalState {
+        Ok(ProvisionalState::<Cd> {
             public_tree: applier_output.new_tree,
             group_context,
             applied_proposals: proposals,

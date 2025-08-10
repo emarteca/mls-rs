@@ -20,6 +20,7 @@ use crate::{
     time::MlsTime,
     tree_kem::{kem::TreeKem, path_secret::PathSecret, TreeKemPrivate, UpdatePath},
     ExtensionList, MlsRules,
+    group::proposal::{CustomDecoder, BasicDecoder},
 };
 
 #[cfg(all(not(mls_build_async), feature = "rayon"))]
@@ -59,20 +60,20 @@ use super::proposal::CustomProposal;
 #[derive(Clone, Debug, PartialEq, MlsSize, MlsEncode, MlsDecode)]
 #[cfg_attr(feature = "arbitrary", derive(mls_rs_core::arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub(crate) struct Commit {
-    pub proposals: Vec<ProposalOrRef>,
+pub(crate) struct Commit<C: CustomDecoder = BasicDecoder> {
+    pub proposals: Vec<ProposalOrRef<C>>,
     pub path: Option<UpdatePath>,
 }
 
 #[derive(Clone, PartialEq, Debug, MlsEncode, MlsDecode, MlsSize)]
-pub(crate) struct PendingCommit {
-    pub(crate) state: GroupState,
+pub(crate) struct PendingCommit<C: CustomDecoder = BasicDecoder> {
+    pub(crate) state: GroupState<C>,
     pub(crate) epoch_secrets: EpochSecrets,
     pub(crate) private_tree: TreeKemPrivate,
     pub(crate) key_schedule: KeySchedule,
     pub(crate) signer: SignatureSecretKey,
 
-    pub(crate) output: CommitMessageDescription,
+    pub(crate) output: CommitMessageDescription<C>,
 
     pub(crate) commit_message_hash: MessageHash,
 }
@@ -96,16 +97,16 @@ impl CommitSecrets {
     }
 }
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 /// Result of MLS commit operation using
 /// [`Group::commit`](crate::group::Group::commit) or
 /// [`CommitBuilder::build`](CommitBuilder::build).
-pub struct CommitOutput {
+pub struct CommitOutput<C: CustomDecoder = BasicDecoder> {
     /// Commit message to send to other group members.
     pub commit_message: MlsMessage,
     /// Welcome messages to send to new group members. If the commit does not add members,
@@ -125,13 +126,13 @@ pub struct CommitOutput {
     pub external_commit_group_info: Option<MlsMessage>,
     /// Proposals that were received in the prior epoch but not included in the following commit.
     #[cfg(feature = "by_ref_proposal")]
-    pub unused_proposals: Vec<crate::mls_rules::ProposalInfo<Proposal>>,
+    pub unused_proposals: Vec<crate::mls_rules::ProposalInfo<Proposal<C>>>,
     /// Indicator that the commit contains a path update
     pub contains_update_path: bool,
 }
 
-#[cfg_attr(all(feature = "ffi", not(test)), ::safer_ffi_gen::safer_ffi_gen)]
-impl CommitOutput {
+// #[cfg_attr(all(feature = "ffi", not(test)), ::safer_ffi_gen::safer_ffi_gen)]
+impl<C: CustomDecoder> CommitOutput<C> {
     /// Commit message to send to other group members.
     #[cfg(feature = "ffi")]
     pub fn commit_message(&self) -> &MlsMessage {
@@ -162,7 +163,7 @@ impl CommitOutput {
 
     /// Proposals that were received in the prior epoch but not included in the following commit.
     #[cfg(all(feature = "ffi", feature = "by_ref_proposal"))]
-    pub fn unused_proposals(&self) -> &[crate::mls_rules::ProposalInfo<Proposal>] {
+    pub fn unused_proposals(&self) -> &[crate::mls_rules::ProposalInfo<Proposal<C>>] {
         &self.unused_proposals
     }
 }
@@ -179,7 +180,7 @@ where
     C: ClientConfig + Clone,
 {
     group: &'a mut Group<C>,
-    pub(super) proposals: Vec<Proposal>,
+    pub(super) proposals: Vec<Proposal<C::CustomProposalDecoder>>,
     authenticated_data: Vec<u8>,
     group_info_extensions: ExtensionList,
     new_signer: Option<SignatureSecretKey>,
@@ -290,7 +291,7 @@ where
     /// Insert a proposal that was previously constructed such as when a
     /// proposal is returned from
     /// [`NewEpoch::unused_proposals`](super::NewEpoch::unused_proposals).
-    pub fn raw_proposal(mut self, proposal: Proposal) -> Self {
+    pub fn raw_proposal(mut self, proposal: Proposal<C::CustomProposalDecoder>) -> Self {
         self.proposals.push(proposal);
         self
     }
@@ -298,7 +299,7 @@ where
     /// Insert proposals that were previously constructed such as when a
     /// proposal is returned from
     /// [`NewEpoch::unused_proposals`](super::NewEpoch::unused_proposals).
-    pub fn raw_proposals(mut self, mut proposals: Vec<Proposal>) -> Self {
+    pub fn raw_proposals(mut self, mut proposals: Vec<Proposal<C::CustomProposalDecoder>>) -> Self {
         self.proposals.append(&mut proposals);
         self
     }
@@ -359,7 +360,7 @@ where
     /// MLS RFC, or if they do not pass the custom rules defined by the current
     /// [proposal rules](crate::client_builder::ClientBuilder::mls_rules).
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
-    pub async fn build(self) -> Result<CommitOutput, MlsError> {
+    pub async fn build(self) -> Result<CommitOutput<C::CustomProposalDecoder>, MlsError> {
         let (output, pending_commit) = self
             .group
             .commit_internal(
@@ -384,7 +385,7 @@ where
     ///
     /// A detached commit can be applied using `Group::apply_detached_commit`.
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
-    pub async fn build_detached(self) -> Result<(CommitOutput, CommitSecrets), MlsError> {
+    pub async fn build_detached(self) -> Result<(CommitOutput<C::CustomProposalDecoder>, CommitSecrets), MlsError> {
         let (output, pending_commit) = self
             .group
             .commit_internal(
@@ -453,7 +454,7 @@ where
     /// [`Psk`](crate::group::proposal::Proposal::Psk),
     /// or [`ReInit`](crate::group::proposal::Proposal::ReInit) are part of the commit.
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
-    pub async fn commit(&mut self, authenticated_data: Vec<u8>) -> Result<CommitOutput, MlsError> {
+    pub async fn commit(&mut self, authenticated_data: Vec<u8>) -> Result<CommitOutput<C::CustomProposalDecoder>, MlsError> {
         self.commit_builder()
             .authenticated_data(authenticated_data)
             .build()
@@ -468,7 +469,7 @@ where
     pub async fn commit_detached(
         &mut self,
         authenticated_data: Vec<u8>,
-    ) -> Result<(CommitOutput, CommitSecrets), MlsError> {
+    ) -> Result<(CommitOutput<C::CustomProposalDecoder>, CommitSecrets), MlsError> {
         self.commit_builder()
             .authenticated_data(authenticated_data)
             .build_detached()
@@ -496,7 +497,7 @@ where
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
     pub(super) async fn commit_internal(
         &mut self,
-        proposals: Vec<Proposal>,
+        proposals: Vec<Proposal<C::CustomProposalDecoder>>,
         external_leaf: Option<&LeafNode>,
         authenticated_data: Vec<u8>,
         mut welcome_group_info_extensions: ExtensionList,
@@ -504,7 +505,7 @@ where
         new_signing_identity: Option<SigningIdentity>,
         new_leaf_node_extensions: Option<ExtensionList>,
         commit_time: Option<MlsTime>,
-    ) -> Result<(CommitOutput, PendingCommit), MlsError> {
+    ) -> Result<(CommitOutput<C::CustomProposalDecoder>, PendingCommit<C::CustomProposalDecoder>), MlsError> {
         if !self.pending_commit.is_none() {
             return Err(MlsError::ExistingPendingCommit);
         }
@@ -851,22 +852,22 @@ where
             .reinitializations
             .first();
 
-        let pending_commit = PendingCommit {
+        let pending_commit = PendingCommit::<C::CustomProposalDecoder> {
             output: CommitMessageDescription {
                 is_external: matches!(auth_content.content.sender, Sender::NewMemberCommit),
                 authenticated_data: auth_content.content.authenticated_data,
                 committer: *provisional_private_tree.self_index,
                 effect: match pending_reinit {
                     Some(r) => CommitEffect::ReInit(r.clone()),
-                    None => CommitEffect::NewEpoch(
-                        NewEpoch::new(self.state.clone(), &provisional_state).into(),
+                    None => CommitEffect::NewEpoch::<C::CustomProposalDecoder>(
+                        NewEpoch::<C::CustomProposalDecoder>::new(self.state.clone(), &provisional_state).into(),
                     ),
                 },
             },
 
-            state: GroupState {
+            state: GroupState::<C::CustomProposalDecoder> {
                 #[cfg(feature = "by_ref_proposal")]
-                proposals: crate::group::ProposalCache::new(
+                proposals: crate::group::ProposalCache::<C::CustomProposalDecoder>::new(
                     self.protocol_version(),
                     self.group_id().to_vec(),
                 ),
@@ -886,7 +887,7 @@ where
             private_tree: provisional_private_tree,
         };
 
-        let output = CommitOutput {
+        let output = CommitOutput::<C::CustomProposalDecoder> {
             commit_message,
             welcome_messages,
             ratchet_tree,

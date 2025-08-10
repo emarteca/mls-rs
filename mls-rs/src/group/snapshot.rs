@@ -12,6 +12,7 @@ use crate::{
         cipher_suite_provider, epoch::EpochSecrets, key_schedule::KeySchedule,
         message_hash::MessageHash, state_repo::GroupStateRepository, ConfirmationTag, Group,
         GroupContext, GroupState, InterimTranscriptHash, ReInitProposal, TreeKemPublic,
+        proposal::CustomDecoder
     },
     tree_kem::TreeKemPrivate,
 };
@@ -66,10 +67,10 @@ impl From<Vec<u8>> for PendingCommitSnapshot {
     }
 }
 
-impl TryFrom<PendingCommit> for PendingCommitSnapshot {
+impl<C: CustomDecoder> TryFrom<PendingCommit<C>> for PendingCommitSnapshot {
     type Error = mls_rs_codec::Error;
 
-    fn try_from(value: PendingCommit) -> Result<Self, Self::Error> {
+    fn try_from(value: PendingCommit<C>) -> Result<Self, Self::Error> {
         value.mls_encode_to_vec().map(Self::PendingCommit)
     }
 }

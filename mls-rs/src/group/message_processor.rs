@@ -33,6 +33,7 @@ use crate::{
         validate_update_path, TreeKemPrivate, TreeKemPublic, ValidatedUpdatePath,
     },
     CipherSuiteProvider, KeyPackage,
+    group::proposal::{CustomDecoder, BasicDecoder},
 };
 use itertools::Itertools;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
@@ -59,13 +60,13 @@ use super::proposal_filter::ProposalInfo;
 use crate::group::framing::PrivateMessage;
 
 #[derive(Debug)]
-pub(crate) struct ProvisionalState {
+pub(crate) struct ProvisionalState<C: CustomDecoder = BasicDecoder> {
     pub(crate) public_tree: TreeKemPublic,
     pub(crate) applied_proposals: ProposalBundle,
     pub(crate) group_context: GroupContext,
     pub(crate) external_init_index: Option<LeafIndex>,
     pub(crate) indexes_of_added_kpkgs: Vec<LeafIndex>,
-    pub(crate) unused_proposals: Vec<ProposalInfo<Proposal>>,
+    pub(crate) unused_proposals: Vec<ProposalInfo<Proposal<C>>>,
 }
 
 //By default, the path field of a Commit MUST be populated. The path field MAY be omitted if
@@ -96,22 +97,22 @@ pub(crate) fn path_update_required(proposals: &ProposalBundle) -> bool {
         || !proposals.remove_proposals().is_empty()
 }
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Clone, Debug, PartialEq, MlsSize, MlsEncode, MlsDecode)]
 #[non_exhaustive]
-pub struct NewEpoch {
+pub struct NewEpoch<C: CustomDecoder = BasicDecoder> {
     pub epoch: u64,
-    pub prior_state: GroupState,
-    pub applied_proposals: Vec<ProposalInfo<Proposal>>,
-    pub unused_proposals: Vec<ProposalInfo<Proposal>>,
+    pub prior_state: GroupState<C>,
+    pub applied_proposals: Vec<ProposalInfo<Proposal<C>>>,
+    pub unused_proposals: Vec<ProposalInfo<Proposal<C>>>,
 }
 
-impl NewEpoch {
-    pub(crate) fn new(prior_state: GroupState, provisional_state: &ProvisionalState) -> NewEpoch {
-        NewEpoch {
+impl<C: CustomDecoder> NewEpoch<C> {
+    pub(crate) fn new(prior_state: GroupState<C>, provisional_state: &ProvisionalState<C>) -> NewEpoch<C> {
+        NewEpoch::<C> {
             epoch: provisional_state.group_context.epoch,
             prior_state,
             unused_proposals: provisional_state.unused_proposals.clone(),
@@ -125,8 +126,8 @@ impl NewEpoch {
 }
 
 #[cfg(all(feature = "ffi", not(test)))]
-#[safer_ffi_gen::safer_ffi_gen]
-impl NewEpoch {
+// #[safer_ffi_gen::safer_ffi_gen]
+impl<C: CustomDecoder> NewEpoch<C> {
     pub fn epoch(&self) -> u64 {
         self.epoch
     }
@@ -135,24 +136,24 @@ impl NewEpoch {
         &self.prior_state
     }
 
-    pub fn applied_proposals(&self) -> &[ProposalInfo<Proposal>] {
+    pub fn applied_proposals(&self) -> &[ProposalInfo<Proposal<C>>] {
         &self.applied_proposals
     }
 
-    pub fn unused_proposals(&self) -> &[ProposalInfo<Proposal>] {
+    pub fn unused_proposals(&self) -> &[ProposalInfo<Proposal<C>>] {
         &self.unused_proposals
     }
 }
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Clone, Debug, PartialEq)]
-pub enum CommitEffect {
-    NewEpoch(Box<NewEpoch>),
+pub enum CommitEffect<C: CustomDecoder = BasicDecoder> {
+    NewEpoch(Box<NewEpoch<C>>),
     Removed {
-        new_epoch: Box<NewEpoch>,
+        new_epoch: Box<NewEpoch<C>>,
         remover: Sender,
     },
     ReInit(ProposalInfo<ReInitProposal>),
@@ -207,10 +208,10 @@ impl MlsDecode for CommitEffect {
     }
 }
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 /// An event generated as a result of processing a message for a group with
@@ -303,20 +304,20 @@ impl ApplicationMessageDescription {
     }
 }
 
-#[cfg_attr(
-    all(feature = "ffi", not(test)),
-    safer_ffi_gen::ffi_type(clone, opaque)
-)]
+// #[cfg_attr(
+//     all(feature = "ffi", not(test)),
+//     safer_ffi_gen::ffi_type(clone, opaque)
+// )]
 #[derive(Clone, PartialEq, MlsSize, MlsEncode, MlsDecode)]
 #[non_exhaustive]
 /// Description of a processed MLS commit message.
-pub struct CommitMessageDescription {
+pub struct CommitMessageDescription<C: CustomDecoder = BasicDecoder> {
     /// True if this is the result of an external commit.
     pub is_external: bool,
     /// The index in the group state of the member who performed this commit.
     pub committer: u32,
     /// A full description of group state changes as a result of this commit.
-    pub effect: CommitEffect,
+    pub effect: CommitEffect<C>,
     /// Plaintext authenticated data in the received MLS packet.
     #[mls_codec(with = "mls_rs_codec::byte_vec")]
     pub authenticated_data: Vec<u8>,
