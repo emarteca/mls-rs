@@ -307,7 +307,7 @@ impl CustomProposal {
     }
 }
 
-pub trait CustomDecoder: Sized + MlsEncode + MlsDecode + MlsSize {
+pub trait CustomDecoder: Sized + MlsEncode + MlsDecode + MlsSize + std::marker::Send + std::marker::Sync {
     // type A: any;
     fn encode_from_bytes(data: &Vec<u8>, writer: &mut Vec<u8>, _proposal_type: &ProposalType) -> Result<(), mls_rs_codec::Error> {
         mls_rs_codec::byte_vec::mls_encode(data, writer)

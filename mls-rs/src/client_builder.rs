@@ -13,7 +13,7 @@ use crate::{
     extension::ExtensionType,
     group::{
         mls_rules::{DefaultMlsRules, MlsRules},
-        proposal::ProposalType,
+        proposal::{ProposalType, BasicDecoder, CustomDecoder},
     },
     identity::CredentialType,
     identity::SigningIdentity,
@@ -50,6 +50,7 @@ pub type BaseConfig = Config<
     Missing,
     DefaultMlsRules,
     Missing,
+    BasicDecoder
 >;
 
 /// Base client configuration type when instantiating `ClientBuilder`
@@ -60,9 +61,10 @@ pub type BaseInMemoryConfig = Config<
     Missing,
     Missing,
     Missing,
+    BasicDecoder
 >;
 
-pub type EmptyConfig = Config<Missing, Missing, Missing, Missing, Missing, Missing>;
+pub type EmptyConfig = Config<Missing, Missing, Missing, Missing, Missing, Missing, BasicDecoder>;
 
 /// Base client configuration that is backed by SQLite storage.
 #[cfg(feature = "sqlite")]
@@ -73,6 +75,7 @@ pub type BaseSqlConfig = Config<
     Missing,
     DefaultMlsRules,
     Missing,
+    BasicDecoder
 >;
 
 /// Builder for [`Client`]
@@ -202,6 +205,7 @@ impl ClientBuilder<BaseConfig> {
             signer: Default::default(),
             signing_identity: Default::default(),
             version: ProtocolVersion::MLS_10,
+            custom_proposal_decoder: BasicDecoder {},
         }))
     }
 }
@@ -219,6 +223,7 @@ impl ClientBuilder<EmptyConfig> {
             signer: Default::default(),
             signing_identity: Default::default(),
             version: ProtocolVersion::MLS_10,
+            custom_proposal_decoder: BasicDecoder {},
         }))
     }
 }
@@ -240,6 +245,7 @@ impl ClientBuilder<BaseSqlConfig> {
             signer: Default::default(),
             signing_identity: Default::default(),
             version: ProtocolVersion::MLS_10,
+            custom_proposal_decoder: BasicDecoder {},
         })))
     }
 }
@@ -323,9 +329,33 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
+    /// Set the custom proposal decoder to be used by the client.
+    ///
+    /// By default, an implementation using the SystemTime::now (except for WASM) is used.
+    pub fn custom_proposal_decoder<CD>(self, cp_decoder: CD) -> ClientBuilder<WithCustomProposalDecoder<CD, C>>
+    where
+        CD: CustomDecoder,
+    {
+        let Config(c) = self.0.into_config();
+
+        ClientBuilder(Config(ConfigInner {
+            settings: c.settings,
+            key_package_repo: c.key_package_repo,
+            psk_store: c.psk_store,
+            group_state_storage: c.group_state_storage,
+            identity_provider: c.identity_provider,
+            mls_rules: c.mls_rules,
+            crypto_provider: c.crypto_provider,
+            signer: c.signer,
+            signing_identity: c.signing_identity,
+            version: c.version,
+            custom_proposal_decoder: cp_decoder,
+        }))
+    }
     /// Set the PSK store to be used by the client.
     ///
     /// By default, an in-memory store is used.
@@ -346,6 +376,7 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
@@ -372,6 +403,7 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
@@ -396,6 +428,7 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
@@ -420,6 +453,7 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
@@ -447,6 +481,7 @@ impl<C: IntoConfig> ClientBuilder<C> {
             signer: c.signer,
             signing_identity: c.signing_identity,
             version: c.version,
+            custom_proposal_decoder: c.custom_proposal_decoder,
         }))
     }
 
@@ -500,6 +535,7 @@ where
     C::IdentityProvider: IdentityProvider + Clone,
     C::MlsRules: MlsRules + Clone,
     C::CryptoProvider: CryptoProvider + Clone,
+    C::CustomProposalDecoder: CustomDecoder + Clone,
 {
     pub(crate) fn build_config(self) -> IntoConfigOutput<C> {
         let mut c = self.0.into_config();
@@ -552,6 +588,7 @@ pub type WithKeyPackageRepo<K, C> = Config<
     <C as IntoConfig>::IdentityProvider,
     <C as IntoConfig>::MlsRules,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Change the PSK store used by a client configuration.
@@ -564,6 +601,7 @@ pub type WithPskStore<P, C> = Config<
     <C as IntoConfig>::IdentityProvider,
     <C as IntoConfig>::MlsRules,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Change the group state storage used by a client configuration.
@@ -576,6 +614,7 @@ pub type WithGroupStateStorage<G, C> = Config<
     <C as IntoConfig>::IdentityProvider,
     <C as IntoConfig>::MlsRules,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Change the identity validator used by a client configuration.
@@ -588,6 +627,7 @@ pub type WithIdentityProvider<I, C> = Config<
     I,
     <C as IntoConfig>::MlsRules,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Change the proposal rules used by a client configuration.
@@ -600,6 +640,7 @@ pub type WithMlsRules<Pr, C> = Config<
     <C as IntoConfig>::IdentityProvider,
     Pr,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Change the crypto provider used by a client configuration.
@@ -612,6 +653,20 @@ pub type WithCryptoProvider<Cp, C> = Config<
     <C as IntoConfig>::IdentityProvider,
     <C as IntoConfig>::MlsRules,
     Cp,
+    <C as IntoConfig>::CustomProposalDecoder,
+>;
+
+/// Change the custom proposal decoder used by a client configuration.
+///
+/// See [`ClientBuilder::custom_proposal_decoder`].
+pub type WithCustomProposalDecoder<Cd, C> = Config<
+    <C as IntoConfig>::KeyPackageRepository,
+    <C as IntoConfig>::PskStore,
+    <C as IntoConfig>::GroupStateStorage,
+    <C as IntoConfig>::IdentityProvider,
+    <C as IntoConfig>::MlsRules,
+    <C as IntoConfig>::CryptoProvider,
+    Cd,
 >;
 
 /// Helper alias for `Config`.
@@ -622,6 +677,7 @@ pub type IntoConfigOutput<C> = Config<
     <C as IntoConfig>::IdentityProvider,
     <C as IntoConfig>::MlsRules,
     <C as IntoConfig>::CryptoProvider,
+    <C as IntoConfig>::CustomProposalDecoder,
 >;
 
 /// Helper alias to make a `Config` from a `ClientConfig`
@@ -632,9 +688,10 @@ pub type MakeConfig<C> = Config<
     <C as ClientConfig>::IdentityProvider,
     <C as ClientConfig>::MlsRules,
     <C as ClientConfig>::CryptoProvider,
+    <C as ClientConfig>::CustomProposalDecoder,
 >;
 
-impl<Kpr, Ps, Gss, Ip, Pr, Cp> ClientConfig for ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp>
+impl<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> ClientConfig for ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>
 where
     Kpr: KeyPackageStorage + Clone,
     Ps: PreSharedKeyStorage + Clone,
@@ -642,6 +699,7 @@ where
     Ip: IdentityProvider + Clone,
     Pr: MlsRules + Clone,
     Cp: CryptoProvider + Clone,
+    Cd: CustomDecoder + Clone,
 {
     type KeyPackageRepository = Kpr;
     type PskStore = Ps;
@@ -649,6 +707,7 @@ where
     type IdentityProvider = Ip;
     type MlsRules = Pr;
     type CryptoProvider = Cp;
+    type CustomProposalDecoder = Cd;
 
     fn supported_extensions(&self) -> Vec<ExtensionType> {
         self.settings.extension_types.clone()
@@ -682,6 +741,10 @@ where
         self.crypto_provider.clone()
     }
 
+    fn custom_proposal_decoder(&self) -> Self::CustomProposalDecoder {
+        self.custom_proposal_decoder.clone()
+    }
+
     fn lifetime(&self, timestamp: Option<MlsTime>) -> Lifetime {
         #[cfg(feature = "std")]
         let now_timestamp = MlsTime::now();
@@ -712,9 +775,9 @@ where
     }
 }
 
-impl<Kpr, Ps, Gss, Ip, Pr, Cp> Sealed for Config<Kpr, Ps, Gss, Ip, Pr, Cp> {}
+impl<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> Sealed for Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> {}
 
-impl<Kpr, Ps, Gss, Ip, Pr, Cp> MlsConfig for Config<Kpr, Ps, Gss, Ip, Pr, Cp>
+impl<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> MlsConfig for Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>
 where
     Kpr: KeyPackageStorage + Clone,
 
@@ -723,8 +786,9 @@ where
     Ip: IdentityProvider + Clone,
     Pr: MlsRules + Clone,
     Cp: CryptoProvider + Clone,
+    Cd: CustomDecoder + Clone
 {
-    type Output = ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp>;
+    type Output = ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>;
 
     fn get(&self) -> &Self::Output {
         &self.0
@@ -750,6 +814,7 @@ impl<T: MlsConfig> ClientConfig for T {
     type IdentityProvider = <T::Output as ClientConfig>::IdentityProvider;
     type MlsRules = <T::Output as ClientConfig>::MlsRules;
     type CryptoProvider = <T::Output as ClientConfig>::CryptoProvider;
+    type CustomProposalDecoder = <T::Output as ClientConfig>::CustomProposalDecoder;
 
     fn supported_extensions(&self) -> Vec<ExtensionType> {
         self.get().supported_extensions()
@@ -801,6 +866,10 @@ impl<T: MlsConfig> ClientConfig for T {
 
     fn supported_credential_types(&self) -> Vec<CredentialType> {
         self.get().supported_credential_types()
+    }
+
+    fn custom_proposal_decoder(&self) -> Self::CustomProposalDecoder {
+        self.get().custom_proposal_decoder()
     }
 }
 
@@ -855,6 +924,7 @@ pub(crate) fn recreate_config<T: ClientConfig>(
         signer,
         signing_identity,
         version,
+        custom_proposal_decoder: c.custom_proposal_decoder(),
     })
 }
 
@@ -870,10 +940,10 @@ mod private {
     use crate::client_builder::{IntoConfigOutput, Settings};
 
     #[derive(Clone, Debug)]
-    pub struct Config<Kpr, Ps, Gss, Ip, Pr, Cp>(pub(crate) ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp>);
+    pub struct Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>(pub(crate) ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>);
 
     #[derive(Clone, Debug)]
-    pub struct ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp> {
+    pub struct ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> {
         pub(crate) settings: Settings,
         pub(crate) key_package_repo: Kpr,
         pub(crate) psk_store: Ps,
@@ -884,6 +954,7 @@ mod private {
         pub(crate) signer: Option<SignatureSecretKey>,
         pub(crate) signing_identity: Option<(SigningIdentity, CipherSuite)>,
         pub(crate) version: ProtocolVersion,
+        pub(crate) custom_proposal_decoder: Cd,
     }
 
     pub trait IntoConfig {
@@ -893,17 +964,19 @@ mod private {
         type IdentityProvider;
         type MlsRules;
         type CryptoProvider;
+        type CustomProposalDecoder;
 
         fn into_config(self) -> IntoConfigOutput<Self>;
     }
 
-    impl<Kpr, Ps, Gss, Ip, Pr, Cp> IntoConfig for Config<Kpr, Ps, Gss, Ip, Pr, Cp> {
+    impl<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> IntoConfig for Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> {
         type KeyPackageRepository = Kpr;
         type PskStore = Ps;
         type GroupStateStorage = Gss;
         type IdentityProvider = Ip;
         type MlsRules = Pr;
         type CryptoProvider = Cp;
+        type CustomProposalDecoder = Cd;
 
         fn into_config(self) -> Self {
             self
