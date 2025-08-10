@@ -14,13 +14,13 @@ use crate::{
     client::MlsError,
     client_config::ClientConfig,
     extension::RatchetTreeExt,
+    group::proposal::{BasicDecoder, CustomDecoder},
     identity::SigningIdentity,
     protocol_version::ProtocolVersion,
     signer::Signable,
     time::MlsTime,
     tree_kem::{kem::TreeKem, path_secret::PathSecret, TreeKemPrivate, UpdatePath},
     ExtensionList, MlsRules,
-    group::proposal::{CustomDecoder, BasicDecoder},
 };
 
 #[cfg(all(not(mls_build_async), feature = "rayon"))]
@@ -385,7 +385,9 @@ where
     ///
     /// A detached commit can be applied using `Group::apply_detached_commit`.
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
-    pub async fn build_detached(self) -> Result<(CommitOutput<C::CustomProposalDecoder>, CommitSecrets), MlsError> {
+    pub async fn build_detached(
+        self,
+    ) -> Result<(CommitOutput<C::CustomProposalDecoder>, CommitSecrets), MlsError> {
         let (output, pending_commit) = self
             .group
             .commit_internal(
@@ -454,7 +456,10 @@ where
     /// [`Psk`](crate::group::proposal::Proposal::Psk),
     /// or [`ReInit`](crate::group::proposal::Proposal::ReInit) are part of the commit.
     #[cfg_attr(not(mls_build_async), maybe_async::must_be_sync)]
-    pub async fn commit(&mut self, authenticated_data: Vec<u8>) -> Result<CommitOutput<C::CustomProposalDecoder>, MlsError> {
+    pub async fn commit(
+        &mut self,
+        authenticated_data: Vec<u8>,
+    ) -> Result<CommitOutput<C::CustomProposalDecoder>, MlsError> {
         self.commit_builder()
             .authenticated_data(authenticated_data)
             .build()
@@ -505,7 +510,13 @@ where
         new_signing_identity: Option<SigningIdentity>,
         new_leaf_node_extensions: Option<ExtensionList>,
         commit_time: Option<MlsTime>,
-    ) -> Result<(CommitOutput<C::CustomProposalDecoder>, PendingCommit<C::CustomProposalDecoder>), MlsError> {
+    ) -> Result<
+        (
+            CommitOutput<C::CustomProposalDecoder>,
+            PendingCommit<C::CustomProposalDecoder>,
+        ),
+        MlsError,
+    > {
         if !self.pending_commit.is_none() {
             return Err(MlsError::ExistingPendingCommit);
         }
@@ -860,7 +871,11 @@ where
                 effect: match pending_reinit {
                     Some(r) => CommitEffect::ReInit(r.clone()),
                     None => CommitEffect::NewEpoch::<C::CustomProposalDecoder>(
-                        NewEpoch::<C::CustomProposalDecoder>::new(self.state.clone(), &provisional_state).into(),
+                        NewEpoch::<C::CustomProposalDecoder>::new(
+                            self.state.clone(),
+                            &provisional_state,
+                        )
+                        .into(),
                     ),
                 },
             },

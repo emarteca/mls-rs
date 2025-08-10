@@ -10,9 +10,9 @@ use crate::{
     client_config::ClientConfig,
     group::{
         cipher_suite_provider, epoch::EpochSecrets, key_schedule::KeySchedule,
-        message_hash::MessageHash, state_repo::GroupStateRepository, ConfirmationTag, Group,
-        GroupContext, GroupState, InterimTranscriptHash, ReInitProposal, TreeKemPublic,
-        proposal::CustomDecoder
+        message_hash::MessageHash, proposal::CustomDecoder, state_repo::GroupStateRepository,
+        ConfirmationTag, Group, GroupContext, GroupState, InterimTranscriptHash, ReInitProposal,
+        TreeKemPublic,
     },
     tree_kem::TreeKemPrivate,
 };

@@ -24,6 +24,7 @@ use super::{
 };
 use crate::{
     client::MlsError,
+    group::proposal::{BasicDecoder, CustomDecoder},
     key_package::validate_key_package_properties,
     time::MlsTime,
     tree_kem::{
@@ -33,7 +34,6 @@ use crate::{
         validate_update_path, TreeKemPrivate, TreeKemPublic, ValidatedUpdatePath,
     },
     CipherSuiteProvider, KeyPackage,
-    group::proposal::{CustomDecoder, BasicDecoder},
 };
 use itertools::Itertools;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
@@ -111,7 +111,10 @@ pub struct NewEpoch<C: CustomDecoder = BasicDecoder> {
 }
 
 impl<C: CustomDecoder> NewEpoch<C> {
-    pub(crate) fn new(prior_state: GroupState<C>, provisional_state: &ProvisionalState<C>) -> NewEpoch<C> {
+    pub(crate) fn new(
+        prior_state: GroupState<C>,
+        provisional_state: &ProvisionalState<C>,
+    ) -> NewEpoch<C> {
         NewEpoch::<C> {
             epoch: provisional_state.group_context.epoch,
             prior_state,

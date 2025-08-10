@@ -4,7 +4,7 @@
 
 use crate::{
     extension::ExtensionType,
-    group::{mls_rules::MlsRules, proposal::ProposalType, proposal::CustomDecoder},
+    group::{mls_rules::MlsRules, proposal::CustomDecoder, proposal::ProposalType},
     identity::CredentialType,
     protocol_version::ProtocolVersion,
     time::MlsTime,

@@ -10,8 +10,8 @@ use super::{
     transcript_hash::InterimTranscriptHash,
 };
 use crate::{
+    group::proposal::{BasicDecoder, CustomDecoder},
     group::{GroupContext, TreeKemPublic},
-    group::proposal::{CustomDecoder, BasicDecoder},
     tree_kem::node::LeafIndex,
 };
 

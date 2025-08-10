@@ -947,12 +947,17 @@ where
         self.proposal_message(proposal, authenticated_data).await
     }
 
-    fn add_proposal(&self, key_package: MlsMessage) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
-        Ok(Proposal::<C::CustomProposalDecoder>::Add(alloc::boxed::Box::new(AddProposal {
-            key_package: key_package
-                .into_key_package()
-                .ok_or(MlsError::UnexpectedMessageType)?,
-        })))
+    fn add_proposal(
+        &self,
+        key_package: MlsMessage,
+    ) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
+        Ok(Proposal::<C::CustomProposalDecoder>::Add(
+            alloc::boxed::Box::new(AddProposal {
+                key_package: key_package
+                    .into_key_package()
+                    .ok_or(MlsError::UnexpectedMessageType)?,
+            }),
+        ))
     }
 
     /// Create a proposal message that updates your own public keys.
@@ -1038,9 +1043,11 @@ where
         self.pending_updates
             .push((new_leaf_node.public_key.clone(), (secret_key, signer)));
 
-        Ok(Proposal::<C::CustomProposalDecoder>::Update(UpdateProposal {
-            leaf_node: new_leaf_node,
-        }))
+        Ok(Proposal::<C::CustomProposalDecoder>::Update(
+            UpdateProposal {
+                leaf_node: new_leaf_node,
+            },
+        ))
     }
 
     /// Create a proposal message that removes an existing member from the
@@ -1065,9 +1072,11 @@ where
         // Verify that this leaf is actually in the tree
         self.current_epoch_tree().get_leaf_node(leaf_index)?;
 
-        Ok(Proposal::<C::CustomProposalDecoder>::Remove(RemoveProposal {
-            to_remove: leaf_index,
-        }))
+        Ok(Proposal::<C::CustomProposalDecoder>::Remove(
+            RemoveProposal {
+                to_remove: leaf_index,
+            },
+        ))
     }
 
     #[cfg(all(
@@ -1110,10 +1119,15 @@ where
     }
 
     #[cfg(feature = "psk")]
-    fn psk_proposal(&self, key_id: JustPreSharedKeyID) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
-        Ok(Proposal::<C::CustomProposalDecoder>::Psk(PreSharedKeyProposal {
-            psk: PreSharedKeyID::new(key_id, &self.cipher_suite_provider)?,
-        }))
+    fn psk_proposal(
+        &self,
+        key_id: JustPreSharedKeyID,
+    ) -> Result<Proposal<C::CustomProposalDecoder>, MlsError> {
+        Ok(Proposal::<C::CustomProposalDecoder>::Psk(
+            PreSharedKeyProposal {
+                psk: PreSharedKeyID::new(key_id, &self.cipher_suite_provider)?,
+            },
+        ))
     }
 
     /// Create a proposal message that adds a pre shared key from a previous
@@ -1178,12 +1192,14 @@ where
                 .map_err(|e| MlsError::CryptoProviderError(e.into_any_error()))
         })?;
 
-        Ok(Proposal::<C::CustomProposalDecoder>::ReInit(ReInitProposal {
-            group_id,
-            version,
-            cipher_suite,
-            extensions,
-        }))
+        Ok(Proposal::<C::CustomProposalDecoder>::ReInit(
+            ReInitProposal {
+                group_id,
+                version,
+                cipher_suite,
+                extensions,
+            },
+        ))
     }
 
     /// Create a proposal message that sets extensions stored in the group
@@ -1210,7 +1226,10 @@ where
         self.proposal_message(proposal, authenticated_data).await
     }
 
-    fn group_context_extensions_proposal(&self, extensions: ExtensionList) -> Proposal<C::CustomProposalDecoder> {
+    fn group_context_extensions_proposal(
+        &self,
+        extensions: ExtensionList,
+    ) -> Proposal<C::CustomProposalDecoder> {
         Proposal::<C::CustomProposalDecoder>::GroupContextExtensions(extensions)
     }
 

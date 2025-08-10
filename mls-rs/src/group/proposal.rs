@@ -307,12 +307,21 @@ impl CustomProposal {
     }
 }
 
-pub trait CustomDecoder: Sized + MlsEncode + MlsDecode + MlsSize + std::marker::Send + std::marker::Sync + Clone {
+pub trait CustomDecoder:
+    Sized + MlsEncode + MlsDecode + MlsSize + std::marker::Send + std::marker::Sync + Clone
+{
     // type A: any;
-    fn encode_from_bytes(data: &Vec<u8>, writer: &mut Vec<u8>, _proposal_type: &ProposalType) -> Result<(), mls_rs_codec::Error> {
+    fn encode_from_bytes(
+        data: &Vec<u8>,
+        writer: &mut Vec<u8>,
+        _proposal_type: &ProposalType,
+    ) -> Result<(), mls_rs_codec::Error> {
         mls_rs_codec::byte_vec::mls_encode(data, writer)
     }
-    fn decode_from_bytes(reader: &mut &[u8], _proposal_type: &ProposalType) -> Result<Vec<u8>, mls_rs_codec::Error> {
+    fn decode_from_bytes(
+        reader: &mut &[u8],
+        _proposal_type: &ProposalType,
+    ) -> Result<Vec<u8>, mls_rs_codec::Error> {
         mls_rs_codec::byte_vec::mls_decode(reader)
     }
 }
@@ -445,7 +454,7 @@ impl<C: CustomDecoder> MlsEncode for Proposal<C> {
                 }
                 C::encode_from_bytes(&p.data, writer, &p.proposal_type)
                 // mls_rs_codec::byte_vec::mls_encode(&p.data, writer)
-            },
+            }
             Proposal::_PhantomVariant(_) => panic!("Not constructible"),
         }
     }

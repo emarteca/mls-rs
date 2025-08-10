@@ -13,8 +13,9 @@ use super::{
 use crate::{
     client::MlsError,
     group::{
+        proposal::{BasicDecoder, CustomDecoder},
         proposal_filter::{ProposalApplier, ProposalBundle, ProposalSource},
-        Proposal, Sender, proposal::{CustomDecoder, BasicDecoder}
+        Proposal, Sender,
     },
     time::MlsTime,
 };

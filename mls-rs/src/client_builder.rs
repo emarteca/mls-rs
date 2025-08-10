@@ -13,7 +13,7 @@ use crate::{
     extension::ExtensionType,
     group::{
         mls_rules::{DefaultMlsRules, MlsRules},
-        proposal::{ProposalType, BasicDecoder, CustomDecoder},
+        proposal::{BasicDecoder, CustomDecoder, ProposalType},
     },
     identity::CredentialType,
     identity::SigningIdentity,
@@ -50,7 +50,7 @@ pub type BaseConfig = Config<
     Missing,
     DefaultMlsRules,
     Missing,
-    BasicDecoder
+    BasicDecoder,
 >;
 
 /// Base client configuration type when instantiating `ClientBuilder`
@@ -61,7 +61,7 @@ pub type BaseInMemoryConfig = Config<
     Missing,
     Missing,
     Missing,
-    BasicDecoder
+    BasicDecoder,
 >;
 
 pub type EmptyConfig = Config<Missing, Missing, Missing, Missing, Missing, Missing, BasicDecoder>;
@@ -75,7 +75,7 @@ pub type BaseSqlConfig = Config<
     Missing,
     DefaultMlsRules,
     Missing,
-    BasicDecoder
+    BasicDecoder,
 >;
 
 /// Builder for [`Client`]
@@ -336,7 +336,10 @@ impl<C: IntoConfig> ClientBuilder<C> {
     /// Set the custom proposal decoder to be used by the client.
     ///
     /// By default, an implementation using the SystemTime::now (except for WASM) is used.
-    pub fn custom_proposal_decoder<CD>(self, cp_decoder: CD) -> ClientBuilder<WithCustomProposalDecoder<CD, C>>
+    pub fn custom_proposal_decoder<CD>(
+        self,
+        cp_decoder: CD,
+    ) -> ClientBuilder<WithCustomProposalDecoder<CD, C>>
     where
         CD: CustomDecoder,
     {
@@ -786,7 +789,7 @@ where
     Ip: IdentityProvider + Clone,
     Pr: MlsRules + Clone,
     Cp: CryptoProvider + Clone,
-    Cd: CustomDecoder + Clone
+    Cd: CustomDecoder + Clone,
 {
     type Output = ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>;
 
@@ -940,7 +943,9 @@ mod private {
     use crate::client_builder::{IntoConfigOutput, Settings};
 
     #[derive(Clone, Debug)]
-    pub struct Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>(pub(crate) ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>);
+    pub struct Config<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>(
+        pub(crate) ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd>,
+    );
 
     #[derive(Clone, Debug)]
     pub struct ConfigInner<Kpr, Ps, Gss, Ip, Pr, Cp, Cd> {
